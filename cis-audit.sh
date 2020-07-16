@@ -436,7 +436,27 @@ test_is_not_installed() {
     duration="$(test_finish $id $test_start_time)ms"
     write_result "$id,$description,$scored,$level,$result,$duration"
 }
+test_is_not_installs() {
+    id=$1
+    level=$2
+    pkgs=($3)
+    name=$4
+    description="Ensure $name is not installed" #search for multiple packages
+    scored="Scored"
+    test_start_time=$(test_start $id)
+    state=0
 
+    ## Tests Start ##
+    for pkg in "${pkgs[@]}"
+    do
+      [ $(rpm -q $pkg &>/dev/null; echo $?) -eq 0 ] || state=1
+    done
+    [ $state -eq 0 ] && result=Pass
+    ## Tests End ##
+
+    duration="$(test_finish $id $test_start_time)ms"
+    write_result "$id,$description,$scored,$level,$result,$duration"
+}
 test_perms() {
     id=$1
     level=$2
@@ -925,8 +945,7 @@ test_1.7.1.8() {
     duration="$(test_finish $id $test_start_time)ms"
     write_result "$id,$description,$scored,$level,$result,$duration"
 }
-#####################################HAIM
-test_1.7.1.1() {
+test_1.8.1.1() {
     id=$1
     level=$2
     description="Ensure message of the day is configured properly"
@@ -944,7 +963,7 @@ test_1.7.1.1() {
     duration="$(test_finish $id $test_start_time)ms"
     write_result "$id,$description,$scored,$level,$result,$duration"
 }
-test_1.7.1.2() {
+test_1.8.1.2() {
     id=$1
     level=$2
     description="Ensure local login warning banner is configured properly"
@@ -962,7 +981,7 @@ test_1.7.1.2() {
     duration="$(test_finish $id $test_start_time)ms"
     write_result "$id,$description,$scored,$level,$result,$duration"
 }
-test_1.7.1.3() {
+test_1.8.1.3() {
     id=$1
     level=$2
     description="Ensure remote login warning banner is configured properly"
@@ -980,36 +999,7 @@ test_1.7.1.3() {
     duration="$(test_finish $id $test_start_time)ms"
     write_result "$id,$description,$scored,$level,$result,$duration"
 }
-test_1.7.2() {
-    id=$1
-    level=$2
-    description="Ensure GDM login banner is configured"
-    scored="Scored"
-    test_start_time="$(test_start $id)"
-
-    ## Tests Start ##
-    state=0
-    gdm_file="/etc/dconf/profile/gdm"
-    banner_file="/etc/dconf/db/gdm.d/01-banner-message"
-
-    if [ "$(rpm -q gdm)" != "package gdm is not installed" ]; then
-        if [ -f $file ]; then
-            diff -qs $gdm_file <( echo -e "user-db:user\nsystem-db:gdm\nfile-db:/usr/share/gdm/greeter-dconf-defaults\n") || state=1
-        else
-            state=2
-        fi
-
-        egrep '^banner-message-enable=true' $banner_file || state=4
-        egrep '^banner-message-text=.*' $banner_file || state=8
-    fi
-
-    [ $state -eq 0 ] && result="Pass"
-    ## Tests End ##
-
-    duration="$(test_finish $id $test_start_time)ms"
-    write_result "$id,$description,$scored,$level,$result,$duration"
-}
-test_1.8() {
+test_1.9() {
     id=$1
     level=$2
     description="Ensure updates are installed"
@@ -1023,64 +1013,27 @@ test_1.8() {
     duration="$(test_finish $id $test_start_time)ms"
     write_result "$id,$description,$scored,$level,$result,$duration"
 }
-
-
-## Section 2 - Services
-test_2.1.x() {
+test_1.10() {
     id=$1
     level=$2
-    service=$3
-    description="Ensure $service services are not enabled"
-    scored="Scored"
-    test_start_time="$(test_start $id)"
-
-    ## Tests Start ##
-    str=$(chkconfig --list 2>&1)
-    state=0
-
-    dgram="$(chkconfig --list $service-dgram 2>/dev/null | awk '{print $2}')"
-    stream="$(chkconfig --list $service-stream 2>/dev/null | awk '{print $2}')"
-
-    if [ "$dgram" != "" -o "$stream" != "" ]; then
-        [ "$dgram" != "off" ] && state=1
-        [ "$stream" != "off" ] && state=1
-    fi
-
-    [ $state -eq 0 ] && result=Pass
-    ## Tests End ##
-
-    duration="$(test_finish $id $test_start_time)ms"
-    write_result "$id,$description,$scored,$level,$result,$duration"
-}
-test_2.1.6() {
-    id=$1
-    level=$2
-    description="Ensure tftp server is not enabled"
+    description="Ensure GDM is removed or login is configured"
     scored="Scored"
     test_start_time="$(test_start $id)"
 
     ## Tests Start ##
     state=0
-    str=$(chkconfig --list 2>&1)
+    gdm_file="/etc/dconf/profile/gdm"
+    banner_file="/etc/dconf/db/gdm.d/01-banner-message"
 
-    [ "$(chkconfig --list 2>&1 | awk '/tftp/ {print $2}')" == "on" ] && state=1
+    if [ "$(rpm -q gdm)" != "package gdm is not installed" ]; then
+        if [ -f $file ]; then
+            diff -qs $gdm_file <( echo -e "user-db:user\nsystem-db:gdm\nfile-db:/usr/share/gdm/greeter-dconf-defaults\n") || state=1
+        else
+            state=0
+        fi
 
-    [ $state -eq 0 ] && result=Pass
-    ## Tests End ##
-
-    duration="$(test_finish $id $test_start_time)ms"
-    write_result "$id,$description,$scored,$level,$result,$duration"
-}
-test_2.1.7() {
-    id=$1
-    level=$2
-    description="Ensure xinetd is not enabled"
-    scored="Scored"
-    test_start_time="$(test_start $id)"
-
-    ## Tests Start ##
-    if [ "$(rpm -q xinetd)" != "package xinetd is not installed" ]; then
-        [ $(systemctl is-enabled xinetd) == "disabled" ] || state=1
+        egrep '^banner-message-enable=true' $banner_file || state=4
+        egrep '^banner-message-text=.*' $banner_file || state=8
     fi
 
     [ $state -eq 0 ] && result="Pass"
@@ -1089,6 +1042,8 @@ test_2.1.7() {
     duration="$(test_finish $id $test_start_time)ms"
     write_result "$id,$description,$scored,$level,$result,$duration"
 }
+
+## Section 2 - Services
 
 test_2.2.1.1() {
     id=$1
@@ -1105,31 +1060,6 @@ test_2.2.1.1() {
     write_result "$id,$description,$scored,$level,$result,$duration"
 }
 test_2.2.1.2() {
-    id=$1
-    level=$2
-    description="Ensure ntp is configured"
-    scored="Scored"
-    test_start_time="$(test_start $id)"
-
-    ## Tests Start ##
-    if [ $( rpm -q ntp &>/dev/null; echo $?) -eq 0 ]; then
-        grep "^restrict -4 default kod nomodify notrap nopeer noquery" /etc/ntp.conf &>/dev/null || state=1
-        grep "^restrict -6 default kod nomodify notrap nopeer noquery" /etc/ntp.conf &>/dev/null || state=2
-        [ $(egrep -c "^(server|pool) .*$" /etc/ntp.conf 2>/dev/null) -ge 2 ] || state=4
-        [ -f /etc/systemd/system/ntpd.service ] && file="/etc/systemd/system/ntpd.service" || file="/usr/lib/systemd/system/ntpd.service"
-        [ $(grep -c 'OPTIONS="-u ntp:ntp' /etc/sysconfig/ntpd) -ne 0 -o $(grep -c 'ExecStart=/usr/sbin/ntpd -u ntp:ntp $OPTIONS' $file) -ne 0 ] || state=8
-
-        [ $state -eq 0 ] && result="Pass"
-        duration="$(test_finish $id $test_start_time)ms"
-    else
-        scored="Skipped"
-        result=""
-    fi
-    ## Tests End ##
-
-    write_result "$id,$description,$scored,$level,$result,$duration"
-}
-test_2.2.1.3() {
     id=$1
     level=$2
     description="Ensure chrony is configured"
@@ -1157,16 +1087,41 @@ test_2.2.1.3() {
 
     write_result "$id,$description,$scored,$level,$result,$duration"
 }
-
-test_2.2.2() {
+test_2.2.1.3() {
     id=$1
     level=$2
-    description="Ensure X Window System is not installed"
+    description="Ensure ntp is configured"
     scored="Scored"
     test_start_time="$(test_start $id)"
 
     ## Tests Start ##
-    [ $(rpm -qa xorg-x11* &>/dev/null | wc -l) -eq 0 ] && result="Pass"
+    if [ $( rpm -q ntp &>/dev/null; echo $?) -eq 0 ]; then
+        grep "^restrict -4 default kod nomodify notrap nopeer noquery" /etc/ntp.conf &>/dev/null || state=1
+        grep "^restrict -6 default kod nomodify notrap nopeer noquery" /etc/ntp.conf &>/dev/null || state=2
+        [ $(egrep -c "^(server|pool) .*$" /etc/ntp.conf 2>/dev/null) -ge 2 ] || state=4
+        [ -f /etc/systemd/system/ntpd.service ] && file="/etc/systemd/system/ntpd.service" || file="/usr/lib/systemd/system/ntpd.service"
+        [ $(grep -c 'OPTIONS="-u ntp:ntp' /etc/sysconfig/ntpd) -ne 0 -o $(grep -c 'ExecStart=/usr/sbin/ntpd -u ntp:ntp $OPTIONS' $file) -ne 0 ] || state=8
+
+        [ $state -eq 0 ] && result="Pass"
+        duration="$(test_finish $id $test_start_time)ms"
+    else
+        scored="Skipped"
+        result=""
+    fi
+    ## Tests End ##
+
+    write_result "$id,$description,$scored,$level,$result,$duration"
+}
+
+test_2.2.2() {
+    id=$1
+    level=$2
+    description="Ensure X11 Server components are not installed"
+    scored="Scored"
+    test_start_time="$(test_start $id)"
+
+    ## Tests Start ##
+    [ $(rpm -qa xorg-x11-server* &>/dev/null | wc -l) -eq 0 ] && result="Pass"
     ## Tests End ##
 
     duration="$(test_finish $id $test_start_time)ms"
@@ -1195,22 +1150,19 @@ test_2.2.x() {
     duration="$(test_finish $id $test_start_time)ms"
     write_result "$id,$description,$scored,$level,$result,$duration"
 }
-test_2.2.7() {
+test_is_disabled_or_masked() {
     id=$1
     level=$2
-    description="Ensure NFS and RPC are not enabled"
+    pkg=$3
+    name=$4
+    description="Ensure $pkg is not installed or the $name service is masked"
     scored="Scored"
+    state=0
     test_start_time="$(test_start $id)"
 
     ## Tests Start ##
-    if [ $(rpm -q nfs-utils &>/dev/null; echo $?) -eq 0 ]; then
-        [ $(systemctl is-enabled nfs.service) == "disabled" ] || state=1
-        [ $(systemctl is-enabled nfs-server.service) == "disabled" ] || state=1
-        [ $(netstat -tupln | egrep ":2049 " | wc -l) -eq 0 ] || state=2
-    fi
-    if [ $(rpm -q rpcbind &>/dev/null; echo $?) -eq 0 ]; then
-        [ $(systemctl is-enabled rpcbind.socket) == "disabled" ] || state=4
-        [ $(netstat -tupln | egrep ":111 " | wc -l) -eq 0 ] || state=8
+    if [ $(rpm -q $pkg &>/dev/null; echo $?) -eq 0 ]; then
+        [ $(systemctl is-enabled $name.service) == "masked" ] || state=1
     fi
 
     [ $state -eq 0 ] && result=Pass
@@ -1219,7 +1171,46 @@ test_2.2.7() {
     duration="$(test_finish $id $test_start_time)ms"
     write_result "$id,$description,$scored,$level,$result,$duration"
 }
-test_2.2.15() {
+test_2.2.7() {
+    id=$1
+    level=$2
+    description="Ensure nfs-utils is not installed or the nfs-server service is masked"
+    scored="Scored"
+    state=0
+    test_start_time="$(test_start $id)"
+
+    ## Tests Start ##
+    if [ $(rpm -q nfs-utils &>/dev/null; echo $?) -eq 0 ]; then
+        [ $(systemctl is-enabled nfs-server.service) == "masked" ] || state=1
+    fi
+
+    [ $state -eq 0 ] && result=Pass
+    ## Tests End ##
+
+    duration="$(test_finish $id $test_start_time)ms"
+    write_result "$id,$description,$scored,$level,$result,$duration"
+}
+test_2.2.8() {
+    id=$1
+    level=$2
+    description="Ensure rpcbind is not installed or the rpcbind services are masked"
+    scored="Scored"
+    state=0
+    test_start_time="$(test_start $id)"
+
+    ## Tests Start ##
+    if [ $(rpm -q rpcbind &>/dev/null; echo $?) -eq 0 ]; then
+        [ $(systemctl is-enabled rpcbind.socket) == "masked" ] || state=2
+        [ $(systemctl is-enabled rpcbind) == "masked" ] || state=2
+    fi
+
+    [ $state -eq 0 ] && result=Pass
+    ## Tests End ##
+
+    duration="$(test_finish $id $test_start_time)ms"
+    write_result "$id,$description,$scored,$level,$result,$duration"
+}
+test_2.2.16() {
     id=$1
     level=$2
     description="Ensure mail transfer agent is configured for local-only mode"
@@ -1270,6 +1261,21 @@ test_2.3.x() {
 
     ## Tests Start ##
     [ $(rpm -q $pkg &>/dev/null; echo $?) -eq 1 ] && result="Pass"
+    ## Tests End ##
+
+    duration="$(test_finish $id $test_start_time)ms"
+    write_result "$id,$description,$scored,$level,$result,$duration"
+}
+
+test_2.4() {
+    id=$1
+    level=$2
+    description="Ensure nonessential services are removed or masked "
+    scored="Not Scored"
+    test_start_time="$(test_start $id)"
+
+    ## Tests Start ##
+    [ $(lsof -i -P -n | grep -v "(ESTABLISHED)"; echo $?) -eq 1 ] && result="Pass (You should look for nonessential Services)" || result="Pass"
     ## Tests End ##
 
     duration="$(test_finish $id $test_start_time)ms"
@@ -2974,66 +2980,58 @@ if [ $(is_test_included 1; echo $?) -eq 0 ]; then   write_cache "1,Initial Setup
     fi
 
     ## Section 1.8 - Warning Banners
-    if [ $(is_test_included 1.7; echo $?) -eq 0 ]; then   write_cache "1.7,Warning Banners"
-        if [ $(is_test_included 1.7.1; echo $?) -eq 0 ]; then   write_cache "1.7.1,Command Line Warning Banners"
-            run_test 1.7.1.1 1 test_1.7.1.1   ## 1.7.1.1 Ensure message of the day is configured properly (Scored)
-            run_test 1.7.1.2 1 test_1.7.1.2   ## 1.7.1.2 Ensure local login warning banner is configured properly (Not Scored)
-            run_test 1.7.1.3 1 test_1.7.1.3   ## 1.7.1.3 Ensure remote login warning banner is configured properly (Not Scored)
-            run_test 1.7.1.4 1 test_perms 644 /etc/motd   ## 1.7.1.4 Ensure permissions on /etc/motd are configured (Not Scored)
-            run_test 1.7.1.5 1 test_perms 644 /etc/issue   ## 1.7.1.5 Ensure permissions on /etc/issue are configured (Scored)
-            run_test 1.7.1.6 1 test_perms 644 /etc/issue.net   ## 1.7.1.6 Ensure permissions on /etc/issue.net are configured (Not Scored)
+    if [ $(is_test_included 1.8; echo $?) -eq 0 ]; then   write_cache "1.8,Warning Banners"
+        if [ $(is_test_included 1.8.1; echo $?) -eq 0 ]; then   write_cache "1.8.1,Command Line Warning Banners"
+            run_test 1.8.1.1 1 test_1.8.1.1   ## 1.8.1.1 Ensure message of the day is configured properly (Scored)
+            run_test 1.8.1.2 1 test_1.8.1.2   ## 1.8.1.2 Ensure local login warning banner is configured properly (Not Scored)
+            run_test 1.8.1.3 1 test_1.8.1.3   ## 1.8.1.3 Ensure remote login warning banner is configured properly (Not Scored)
+            run_test 1.8.1.4 1 test_perms 644 /etc/motd   ## 1.8.1.4 Ensure permissions on /etc/motd are configured (Not Scored)
+            run_test 1.8.1.5 1 test_perms 644 /etc/issue   ## 1.8.1.5 Ensure permissions on /etc/issue are configured (Scored)
+            run_test 1.8.1.6 1 test_perms 644 /etc/issue.net   ## 1.8.1.6 Ensure permissions on /etc/issue.net are configured (Not Scored)
         fi
-        run_test 1.7.2 1 test_1.7.2   ## 1.7.2 Ensure GDM login banner is configured (Scored)
     fi
-
-    run_test 1.8 1 test_1.8   ## 1.8 Ensure updates, patches, and additional security software are installed (Not Scored)
+    run_test 1.9 1 test_1.9   ## 1.9 Ensure updates, patches, and additional security software are installed (Not Scored)
+    run_test 1.10 1 test_1.10   ## 1.10 Ensure GDM is removed or login is configured (Scored)
 fi
 
 ## Section 2 - Services
 if [ $(is_test_included 2; echo $?) -eq 0 ]; then   write_cache "2,Services"
     if [ $(is_test_included 2.1; echo $?) -eq 0 ]; then   write_cache "2.1,inetd Services"
-        run_test 2.1.1 1 test_2.1.x chargen   ## Ensure chargen services are not enabled (Scored)
-        run_test 2.1.2 1 test_2.1.x daytime   ## Ensure daytime services are not enabled (Scored)
-        run_test 2.1.3 1 test_2.1.x discord   ## Ensure discord services are not enabled (Scored)
-        run_test 2.1.4 1 test_2.1.x echo   ## Ensure echo services are not enabled (Scored)
-        run_test 2.1.5 1 test_2.1.x time   ## Ensure time services are not enabled (Scored)
-        run_test 2.1.6 1 test_2.1.6   ## Ensure tftp is not enabled (Scored)
-        run_test 2.1.7 1 test_2.1.7   ## Ensure xinetd is not enabled (Scored)
+        run_test 2.1.1 1 test_is_not_installed xinetd xinetd  ## Ensure xinetd is not installed (Scored)
     fi
     if [ $(is_test_included 2.2; echo $?) -eq 0 ]; then   write_cache "2.2,Special Purpose Services"
         if [ $(is_test_included 2.2.1; echo $?) -eq 0 ]; then   write_cache "2.2.1,Time Synchronisation"
             run_test 2.2.1.1 1 test_2.2.1.1   ## 2.2.1.1 Ensure time synchronisation is in use (Not Scored)
-            run_test 2.2.1.2 1 test_2.2.1.2   ## 2.2.1.2 Ensure ntp is configured (Scored)
-            run_test 2.2.1.3 1 test_2.2.1.3   ## 2.2.1.3 Ensure chrony is configured (Scored)
+            run_test 2.2.1.2 1 test_2.2.1.2   ## 2.2.1.2 Ensure chrony is configured (Scored)
+            run_test 2.2.1.3 1 test_2.2.1.3   ## 2.2.1.3 Ensure ntp is configured (Scored)
         fi
-        run_test 2.2.2 1 test_2.2.2   ## 2.2.2 Ensure X Window System is not installed (Scored)
-        run_test 2.2.3 1 test_2.2.x avahi avahi-daemon.service "5353" Avahi Server   ## 2.2.4 Ensure Avahi Server is not enabled (Scored)
-        run_test 2.2.4 1 test_2.2.x cups cups.service "631" CUPS   ## 2.2.4 Ensure CUPS is not enabled (Scored)
-        run_test 2.2.5 1 test_2.2.x dhcp dhcpd.service "67" DHCP   ## 2.2.5 Ensure DHCP server is not enabled (Scored)
-        run_test 2.2.6 1 test_2.2.x openldap-servers slapd.service "583|:636" LDAP   ## 2.2.6 Ensure LDAP server is not enabled (Scored)
-        run_test 2.2.7 1 test_2.2.7   ## 2.2.7 Ensure NFS and RPC are not enabled (Scored)
-        run_test 2.2.8 1 test_2.2.x bind named.service "53" DNS   ## 2.2.8 Ensure LDAP server is not enabled (Scored)
-        run_test 2.2.9 1 test_2.2.x vsftpd vsftpd.service "21" FTP   ## 2.2.9 Ensure FTP server is not enabled (Scored)
-        run_test 2.2.10 1 test_2.2.x httpd httpd.service "80|:443" HTTP   ## 2.2.10 Ensure HTTP server is not enabled (Scored)
-        run_test 2.2.11 1 test_2.2.x dovecot dovecot.service "110|:143|:587|:993|:995" IMAP and POP   ## 2.2.11 Ensure IMAP and POP server is not enabled (Scored)
-        run_test 2.2.12 1 test_2.2.x samba smb.service "445" Samba   ## 2.2.12 Ensure Samba server is not enabled (Scored)
-        run_test 2.2.13 1 test_2.2.x squid squid.service "3128|:80|:443" HTTP Proxy   ## 2.2.13 Ensure HTTP Proxy Server is not enabled (Scored)
-        run_test 2.2.14 1 test_2.2.x net-snmp snmpd.service "161" SNMP   ## 2.2.14 Ensure SNMP Server is not enabled (Scored)
-        run_test 2.2.15 1 test_2.2.15   ## Ensure mail transfer agent is configured for local-only mode (Scored)
-        run_test 2.2.16 1 test_2.2.x ypserv ypserv.service "789" NIS   ## Ensure NIS Server is not enabled (Scored)
-        run_test 2.2.17 1 test_2.2.17   ## Ensure rsh server is not enabled (Scored)
-        run_test 2.2.18 1 test_2.2.x telnet-server telnet.socket "23" telnet   ## Ensure telnet server is not enabled (Scored)
-        run_test 2.2.19 1 test_2.2.x tftp-server tftp.socket "69" tfp   ## Ensure tftp server is not enabled (Scored)
-        run_test 2.2.20 1 test_2.2.x rsync rsyncd.service "873" rsync   ## Ensure rsync service is not enabled (Scored)
-        run_test 2.2.21 1 test_2.2.x talk-server ntalk.service "517" talk   ## Ensure talk server is not enabled (Scored)
+        run_test 2.2.2 1 test_2.2.2   ## 2.2.2 Ensure X11 Server components are not installed (Scored)
+        run_test 2.2.3 1 test_is_not_installs "avahi-autoipd avahi" "Avahi Server"   ## 2.2.3 Ensure Avahi Server is not installed (Scored)
+        run_test 2.2.4 1 test_is_not_installed cups CUPS   ## 2.2.4 Ensure CUPS is not installed (Scored)
+        run_test 2.2.5 1 test_is_not_installed dhcp DHCP   ## 2.2.5 Ensure DHCP server is not installed (Scored)
+        run_test 2.2.6 1 test_is_not_installed openldap-servers LDAP   ## 2.2.6 Ensure LDAP server is not installed (Scored)
+        run_test 2.2.7 1 test_is_disabled_or_masked nfs-utils nfs-server  ## 2.2.7 Ensure nfs-utils is not installed or the nfs-server service is masked (Scored)
+        run_test 2.2.8 1 test_2.2.8   ## 2.2.8 Ensure rpcbind is not installed or the rpcbind services are masked (Scored)
+        run_test 2.2.9 1 test_is_not_installed bind DNS   ## 2.2.9 Ensure DNS Server is not installed (Scored)
+        run_test 2.2.10 1 test_is_not_installed vsftpd FTP   ## 2.2.10 Ensure FTP server is not installed (Scored)
+        run_test 2.2.11 1 test_is_not_installed httpd HTTP   ## 2.2.11 Ensure HTTP server is not installed (Scored)
+        run_test 2.2.12 1 test_is_not_installed dovecot "IMAP and POP3"   ## 2.2.12 Ensure IMAP and POP server is not installed (Scored)
+        run_test 2.2.13 1 test_is_not_installed samba Samba   ## 2.2.13 Ensure Samba server is not installed (Scored)
+        run_test 2.2.14 1 test_is_not_installed squid "HTTP Proxy"   ## 2.2.14 Ensure HTTP Proxy Server is not installed (Scored)
+        run_test 2.2.15 1 test_is_not_installed net-snmp SNMP   ## 2.2.15 Ensure net-SNMP Server is not installed (Scored)
+        run_test 2.2.16 1 test_2.2.16   ## 2.2.16 Ensure mail transfer agent is configured for local-only mode (Scored)
+        run_test 2.2.17 1 test_is_disabled_or_masked rsync rsyncd  ## 2.2.17 Ensure rsync is not installed or the rsyncd service is masked
+        run_test 2.2.18 1 test_is_not_installed ypserv NIS # 2.2.18 Ensure NIS server is not installed
+        run_test 2.2.19 1 test_is_not_installed telnet-server telnet   ## 2.2.19 Ensure telnet server is not installed (Scored)
     fi
     if [ $(is_test_included 2.3; echo $?) -eq 0 ]; then   write_cache "2.3,Service Clients"
-        run_test 2.3.1 1 test_2.3.x ypbind NIS   ### 2.3.1 Ensure NIS Client is not installed (Scored)
-        run_test 2.3.2 1 test_2.3.x rsh rsh   ### 2.3.2 Ensure rsh client is not installed (Scored)
-        run_test 2.3.3 1 test_2.3.x talk talk   ## 2.3.3 Ensure talk client is not installed (Scored)
-        run_test 2.3.4 1 test_2.3.x telnet telnet   ## 2.3.4 Ensure telnet client is not installed (Scored)
-        run_test 2.3.5 1 test_2.3.x openldap-clients LDAP   ## 2.3.5 Ensure LDAP client is not installed (Scored)
+        run_test 2.3.1 1 test_is_not_installed ypbind NIS   ## 2.3.1 Ensure NIS Client is not installed (Scored)
+        run_test 2.3.2 1 test_is_not_installed rsh rsh   ### 2.3.2 Ensure rsh client is not installed (Scored)
+        run_test 2.3.3 1 test_is_not_installed talk talk   ## 2.3.3 Ensure talk client is not installed (Scored)
+        run_test 2.3.4 1 test_is_not_installed telnet telnet   ## 2.3.4 Ensure telnet client is not installed (Scored)
+        run_test 2.3.5 1 test_is_not_installed openldap-clients LDAP   ## 2.3.5 Ensure LDAP client is not installed (Scored)
     fi
+        run_test 2.4 1 test_2.4 ## Ensure nonessential services are removed or masked
 fi
 
 ## Section 3 - Network Configuration
